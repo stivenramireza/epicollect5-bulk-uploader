@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Epicollect5 Bot - CSV Upload</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .upload-area {
+            border: 2px dashed #cbd5e1;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen">
+    <div class="container mx-auto px-4 py-12 max-w-2xl">
+        <!-- Header -->
+        <div class="flex items-start justify-between mb-10">
+            <div class="text-left">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                </div>
+                <h1 class="text-3xl font-bold text-slate-800 mb-2">Epicollect5 Bot</h1>
+                <p class="text-slate-600">Upload your CSV file to process records in the background</p>
+            </div>
+        </div>
+
+        <!-- Upload Card -->
+        <div class="bg-white rounded-2xl shadow-xl p-8 mb-6">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <!-- Project Configuration -->
+                <div class="space-y-4 mb-6">
+                    <div>
+                        <label for="projectName" class="block text-sm font-medium text-slate-700 mb-1">Project Name</label>
+                        <input type="text" id="projectName" name="project_name" required
+                            placeholder="e.g., websitebot"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors">
+                        <p class="text-xs text-slate-500 mt-1">The project slug from your Epicollect5 URL</p>
+                    </div>
+                    <div>
+                        <label for="projectEmail" class="block text-sm font-medium text-slate-700 mb-1">Project Email</label>
+                        <input type="email" id="projectEmail" name="project_email" required
+                            placeholder="e.g., your-email@example.com"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors">
+                        <p class="text-xs text-slate-500 mt-1">Email associated with the Epicollect5 project</p>
+                    </div>
+                    <div>
+                        <label for="maxWorkers" class="block text-sm font-medium text-slate-700 mb-1">Parallel Workers</label>
+                        <div class="flex items-center space-x-3">
+                            <input type="range" id="maxWorkersSlider" min="1" max="2" value="2"
+                                class="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                            <input type="number" id="maxWorkers" name="max_workers" min="1" max="2" value="2"
+                                class="w-16 px-2 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors text-center">
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1">Number of parallel browser contexts (1-2). More workers = faster uploads</p>
+                    </div>
+                </div>
+
+                <div id="uploadArea" class="upload-area rounded-xl p-10 text-center cursor-pointer mb-6">
+                    <input type="file" id="fileInput" name="file" accept=".csv" class="hidden">
+                    <div id="uploadIcon" class="mb-4">
+                        <svg class="w-12 h-12 mx-auto text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <p class="text-slate-600 mb-2" id="uploadText">
+                        <span class="font-semibold text-blue-600">Click to upload</span> or drag and drop
+                    </p>
+                    <p class="text-sm text-slate-500">CSV files only (up to 50MB)</p>
+                </div>
+
+                <div id="fileInfo" class="hidden bg-slate-50 rounded-lg p-4 mb-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="font-medium text-slate-800" id="fileName">filename.csv</p>
+                                <p class="text-sm text-slate-500" id="fileSize">0 KB</p>
+                            </div>
+                        </div>
+                        <button type="button" id="removeFile" class="text-slate-400 hover:text-red-500 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" id="submitBtn" disabled
+                    class="w-full bg-blue-600 text-white font-semibold py-3 px-6 rounded-xl hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors">
+                    Upload and Process
+                </button>
+            </form>
+        </div>
+
+        <!-- Status Card -->
+        <div id="statusCard" class="hidden bg-white rounded-2xl shadow-xl p-8">
+            <div class="flex items-center space-x-3 mb-6">
+                <div id="statusIcon" class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-blue-600 pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-slate-800">Processing Status</h3>
+                    <p class="text-sm text-slate-500" id="statusText">Initializing...</p>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-slate-600">Progress</span>
+                        <span class="text-slate-800 font-medium" id="progressText">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-200 rounded-full h-2">
+                        <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100">
+                    <div>
+                        <p class="text-sm text-slate-500">Total Records</p>
+                        <p class="text-lg font-semibold text-slate-800" id="totalRecords">-</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-slate-500">Chunks</p>
+                        <p class="text-lg font-semibold text-slate-800" id="chunksProgress">-</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-slate-500">Status</p>
+                        <p class="text-lg font-semibold" id="jobStatus">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error Message -->
+            <div id="errorMessage" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p class="text-red-700 text-sm" id="errorText"></p>
+            </div>
+
+            <!-- Success Message -->
+            <div id="successMessage" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-green-700 text-sm font-medium">All records uploaded successfully!</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const projectName = document.getElementById('projectName');
+        const projectEmail = document.getElementById('projectEmail');
+        const maxWorkers = document.getElementById('maxWorkers');
+        const maxWorkersSlider = document.getElementById('maxWorkersSlider');
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const removeFile = document.getElementById('removeFile');
+        const submitBtn = document.getElementById('submitBtn');
+        const uploadForm = document.getElementById('uploadForm');
+        const statusCard = document.getElementById('statusCard');
+        const statusText = document.getElementById('statusText');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const totalRecords = document.getElementById('totalRecords');
+        const jobStatus = document.getElementById('jobStatus');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+        const successMessage = document.getElementById('successMessage');
+        const chunksProgress = document.getElementById('chunksProgress');
+
+        let statusInterval = null;
+        let fileSelected = false;
+
+        // Sync slider and input for max workers
+        maxWorkersSlider.addEventListener('input', () => {
+            maxWorkers.value = maxWorkersSlider.value;
+        });
+        maxWorkers.addEventListener('input', () => {
+            let val = parseInt(maxWorkers.value) || 1;
+            val = Math.max(1, Math.min(2, val));
+            maxWorkers.value = val;
+            maxWorkersSlider.value = val;
+        });
+
+        // Validate form and update submit button state
+        function validateForm() {
+            const hasProjectName = projectName.value.trim() !== '';
+            const hasProjectEmail = projectEmail.value.trim() !== '' && projectEmail.validity.valid;
+            const hasFile = fileSelected;
+            
+            submitBtn.disabled = !(hasProjectName && hasProjectEmail && hasFile);
+        }
+
+        // Add input listeners for validation
+        projectName.addEventListener('input', validateForm);
+        projectEmail.addEventListener('input', validateForm);
+
+        // Click to upload
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelect(e.dataTransfer.files[0]);
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        // Handle file selection
+        function handleFileSelect(file) {
+            if (!file.name.endsWith('.csv')) {
+                alert('Please select a CSV file');
+                return;
+            }
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            fileInfo.classList.remove('hidden');
+            uploadArea.classList.add('hidden');
+            fileSelected = true;
+            validateForm();
+        }
+
+        // Remove file
+        removeFile.addEventListener('click', () => {
+            fileInput.value = '';
+            fileInfo.classList.add('hidden');
+            uploadArea.classList.remove('hidden');
+            fileSelected = false;
+            validateForm();
+        });
+
+        // Format file size
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Form submit
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('project_name', projectName.value.trim());
+            formData.append('project_email', projectEmail.value.trim());
+            formData.append('max_workers', maxWorkers.value);
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Uploading...';
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusCard.classList.remove('hidden');
+                    totalRecords.textContent = data.records.toLocaleString();
+                    startStatusPolling();
+                } else {
+                    alert(data.error || 'Upload failed');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Upload and Process';
+                }
+            } catch (error) {
+                alert('Error uploading file: ' + error.message);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Upload and Process';
+            }
+        });
+
+        // Poll status
+        function startStatusPolling() {
+            statusInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/status');
+                    const data = await response.json();
+
+                    statusText.textContent = data.progress;
+                    
+                    // Update percentage progress
+                    const percentage = data.percentage || 0;
+                    progressBar.style.width = `${percentage}%`;
+                    progressText.textContent = `${percentage}%`;
+                    
+                    // Update chunks progress
+                    if (data.total_chunks > 0) {
+                        chunksProgress.textContent = `${data.processed_chunks}/${data.total_chunks}`;
+                    }
+                    
+                    if (data.running) {
+                        jobStatus.textContent = 'Running';
+                        jobStatus.className = 'text-lg font-semibold text-blue-600';
+                    } else if (data.error) {
+                        jobStatus.textContent = 'Failed';
+                        jobStatus.className = 'text-lg font-semibold text-red-600';
+                        errorText.textContent = data.error;
+                        errorMessage.classList.remove('hidden');
+                        clearInterval(statusInterval);
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Upload and Process';
+                    } else {
+                        jobStatus.textContent = 'Completed';
+                        jobStatus.className = 'text-lg font-semibold text-green-600';
+                        progressBar.style.width = '100%';
+                        progressText.textContent = '100%';
+                        successMessage.classList.remove('hidden');
+                        clearInterval(statusInterval);
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Upload and Process';
+                    }
+                } catch (error) {
+                    console.error('Status polling error:', error);
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
