@@ -2,6 +2,8 @@
 
 A vibe coded web application that automates bulk CSV data uploads to [Epicollect5](https://five.epicollect.net) with async parallel processing. It uses [Playwright](https://playwright.dev/python/) to drive a headless Chromium browser, splitting large CSV files into chunks and uploading them in parallel through multiple browser contexts.
 
+<img width="702" height="867" alt="Screenshot 2026-02-28 171003" src="https://github.com/user-attachments/assets/aacf830f-e579-4a88-b59b-0e75f17d4d30" />
+
 ## How It Works
 
 1. You submit a CSV file through the web interface along with your Epicollect5 project name and email.
