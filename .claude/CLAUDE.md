@@ -51,11 +51,11 @@ The application has four layers:
 
 3. **Services** (`src/services.py`): Orchestrates job lifecycle. Maintains a global `job_status` dict (not persisted). Splits the CSV into chunks (150 rows each by default), invokes the bot async via a new event loop in a background thread, and fires progress callbacks.
 
-4. **Bot** (`src/epicollect5_bot.py`): `ParallelUploader` creates a pool of Playwright browser contexts (up to 2). Contexts are managed via an `asyncio.Queue`. Workers acquire a context, upload one chunk to Epicollect5 via browser automation, then return the context to the pool. Login session is persisted to `browser_data/storage_state.json` and shared across workers.
+4. **Bot** (`src/epicollect5_bot.py`): `ParallelUploader` creates a pool of Playwright browser contexts (up to 4). Contexts are managed via an `asyncio.Queue`. Workers acquire a context, upload one chunk to Epicollect5 via browser automation, then return the context to the pool. Login session is persisted to `browser_data/storage_state.json` and shared across workers.
 
 ### Threading and Async Model
 
-`POST /upload` runs on FastAPI's main event loop. It spawns a **daemon thread** (`threading.Thread`) that creates its own `asyncio` event loop via `asyncio.new_event_loop()`. Inside that loop, `run_bot_async()` splits the CSV and launches all chunk upload tasks with `asyncio.gather()`. Concurrency is bounded by the `asyncio.Queue`-based context pool (max 2 contexts), not by a semaphore or thread pool. The global `job_status` dict is mutated from both the background thread (sync `update_progress`) and async tasks (`update_progress_async`), which is safe here because only one job runs at a time.
+`POST /upload` runs on FastAPI's main event loop. It spawns a **daemon thread** (`threading.Thread`) that creates its own `asyncio` event loop via `asyncio.new_event_loop()`. Inside that loop, `run_bot_async()` splits the CSV and launches all chunk upload tasks with `asyncio.gather()`. Concurrency is bounded by the `asyncio.Queue`-based context pool (max 4 contexts), not by a semaphore or thread pool. The global `job_status` dict is mutated from both the background thread (sync `update_progress`) and async tasks (`update_progress_async`), which is safe here because only one job runs at a time.
 
 ### Two Bot Classes
 
@@ -66,7 +66,7 @@ The application has four layers:
 ### Key Constraints
 
 - Only one upload job runs at a time (enforced in `services.py` via `is_job_running()`).
-- Max 2 parallel workers (capped in `routes.py` validation via `max(1, min(2, max_workers))`).
+- Max 4 parallel workers (capped in `routes.py` validation via `max(1, min(4, max_workers))`).
 - Job state is in-memory — lost on server restart.
 - Chunk files are written to `files/` and cleaned up in the `finally` block after processing.
 - The Epicollect5 URL (`https://five.epicollect.net`) is hardcoded as `EPICOLLECT5_URL` in `epicollect5_bot.py`.

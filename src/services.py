@@ -13,7 +13,7 @@ from src.logger import logger
 
 # Configuration
 DEFAULT_CHUNK_SIZE = 150
-DEFAULT_MAX_WORKERS = 2  # Number of parallel browser contexts
+DEFAULT_MAX_WORKERS = 4  # Number of parallel browser contexts
 
 # Track job status (shared between coroutines)
 job_status = {

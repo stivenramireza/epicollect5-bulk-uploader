@@ -62,12 +62,12 @@
                     <div>
                         <label for="maxWorkers" class="block text-sm font-medium text-slate-700 mb-1">Parallel Workers</label>
                         <div class="flex items-center space-x-3">
-                            <input type="range" id="maxWorkersSlider" min="1" max="2" value="2"
+                            <input type="range" id="maxWorkersSlider" min="1" max="4" value="4"
                                 class="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
-                            <input type="number" id="maxWorkers" name="max_workers" min="1" max="2" value="2"
+                            <input type="number" id="maxWorkers" name="max_workers" min="1" max="4" value="4"
                                 class="w-16 px-2 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors text-center">
                         </div>
-                        <p class="text-xs text-slate-500 mt-1">Number of parallel browser contexts (1-2). More workers = faster uploads</p>
+                        <p class="text-xs text-slate-500 mt-1">Number of parallel browser contexts (1-4). More workers = faster uploads</p>
                     </div>
                 </div>
 
@@ -204,7 +204,7 @@
         });
         maxWorkers.addEventListener('input', () => {
             let val = parseInt(maxWorkers.value) || 1;
-            val = Math.max(1, Math.min(2, val));
+            val = Math.max(1, Math.min(4, val));
             maxWorkers.value = val;
             maxWorkersSlider.value = val;
         });

@@ -6,7 +6,7 @@ A vibe coded web application that automates bulk CSV data uploads to [Epicollect
 
 1. You submit a CSV file through the web interface along with your Epicollect5 project name and email.
 2. The server splits the CSV into chunks of 150 rows each.
-3. A pool of up to 2 headless browser contexts uploads chunks in parallel, each automating the Epicollect5 "Upload BETA" workflow.
+3. A pool of up to 4 headless browser contexts uploads chunks in parallel, each automating the Epicollect5 "Upload BETA" workflow.
 4. The frontend polls for progress every 5 seconds and displays real-time status updates.
 
 Browser session cookies are persisted to `browser_data/storage_state.json` so that subsequent uploads reuse the existing login without re-authentication.
@@ -73,7 +73,7 @@ If the session expires, delete `browser_data/` and repeat the login process.
 1. Open the web interface at http://localhost:5000.
 2. Enter your **Project Name** (the slug from your Epicollect5 project URL, e.g., `my-project`).
 3. Enter your **Project Email** (the email associated with the Epicollect5 project).
-4. Select the number of **Parallel Workers** (1 or 2).
+4. Select the number of **Parallel Workers** (1-4).
 5. Upload a CSV file (drag-and-drop or click to browse).
 6. Click **Upload and Process** and monitor progress in real time.
 
@@ -93,7 +93,7 @@ Form fields:
 - `file` — CSV file (required)
 - `project_name` — Epicollect5 project slug (required)
 - `project_email` — Account email (required)
-- `max_workers` — Number of parallel browser contexts, 1-2 (default: 2)
+- `max_workers` — Number of parallel browser contexts, 1-4 (default: 4)
 
 ### GET /status
 

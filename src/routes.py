@@ -58,8 +58,8 @@ async def upload_file(
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are allowed")
 
-    # Validate max_workers (between 1 and 2, consistent with UI)
-    max_workers = max(1, min(2, max_workers))
+    # Validate max_workers (between 1 and 4, consistent with UI)
+    max_workers = max(1, min(4, max_workers))
 
     # Save the uploaded file
     file_path = UPLOAD_FOLDER / "sample.csv"
