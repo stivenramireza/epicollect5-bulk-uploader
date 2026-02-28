@@ -22,260 +22,7 @@ from src.logger import logger
 EPICOLLECT5_URL = "https://five.epicollect.net"
 WAIT_TIMEOUT = 30000  # 30 seconds in milliseconds
 UPLOAD_TIMEOUT = 600000  # 10 minutes for large file uploads
-
-
-class Epicollect5Bot:
-    """
-    Async Playwright-based bot for automating Epicollect5 uploads.
-
-    Supports:
-    - Async operations for better performance
-    - Multiple browser contexts for parallel uploads
-    - Persistent browser state for session management
-    """
-
-    def __init__(
-        self,
-        project_name: str,
-        project_email: str,
-        headless: bool = True,
-        user_data_dir: Optional[Path] = None,
-    ):
-        self.project_name = project_name
-        self.project_email = project_email
-        self.headless = headless
-        self.user_data_dir = user_data_dir or self._get_default_user_data_dir()
-
-        self._playwright: Optional[Playwright] = None
-        self._browser: Optional[Browser] = None
-        self._context: Optional[BrowserContext] = None
-        self._page: Optional[Page] = None
-
-    @staticmethod
-    def _get_default_user_data_dir() -> Path:
-        """Get the default user data directory for browser persistence."""
-        return Path(__file__).parent.parent / "browser_data"
-
-    async def __aenter__(self):
-        """Async context manager entry."""
-        await self.start()
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit."""
-        await self.close()
-
-    async def start(self) -> None:
-        """Start the browser and create a new context."""
-        self._playwright = await async_playwright().start()
-
-        # Ensure user data directory exists
-        self.user_data_dir.mkdir(parents=True, exist_ok=True)
-
-        # Launch browser with persistent context for session management
-        self._browser = await self._playwright.chromium.launch(
-            headless=self.headless,
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-            ],
-        )
-
-        # Create context with persistent storage
-        self._context = await self._browser.new_context(
-            storage_state=(
-                self._get_storage_state_path() if self._storage_state_exists() else None
-            ),
-            viewport={"width": 1920, "height": 1080},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        )
-
-        self._page = await self._context.new_page()
-        logger.info("Browser started successfully")
-
-    async def close(self) -> None:
-        """Close browser and save state."""
-        if self._context:
-            try:
-                # Save storage state for session persistence
-                await self._context.storage_state(
-                    path=str(self._get_storage_state_path())
-                )
-                logger.info("Browser state saved")
-            except Exception as e:
-                logger.warning(f"Could not save browser state: {e}")
-
-            await self._context.close()
-
-        if self._browser:
-            await self._browser.close()
-
-        if self._playwright:
-            await self._playwright.stop()
-
-        logger.info("Browser closed")
-
-    def _get_storage_state_path(self) -> Path:
-        """Get path to storage state file."""
-        return self.user_data_dir / "storage_state.json"
-
-    def _storage_state_exists(self) -> bool:
-        """Check if storage state file exists."""
-        return self._get_storage_state_path().exists()
-
-    async def login(self) -> bool:
-        """
-        Check if logged in to Epicollect5.
-        Relies on session persistence from storage state.
-
-        Returns:
-            True if logged in, False otherwise.
-        """
-        logger.info(f"Checking Epicollect5 login status...")
-
-        # Go to the login page
-        await self._page.goto(f"{EPICOLLECT5_URL}/login", wait_until="networkidle")
-
-        # Check if already logged in by looking for user menu or similar
-        if await self._is_logged_in():
-            logger.info("Already logged in from previous session")
-            return True
-
-        logger.error(
-            "Not logged in. Please ensure a valid session exists in browser_data/"
-        )
-        return False
-
-    async def _is_logged_in(self) -> bool:
-        """Check if user is already logged in."""
-        try:
-            # Look for common logged-in indicators
-            user_menu = self._page.locator(
-                '[class*="user"], [class*="profile"], [class*="account"], [aria-label*="account" i]'
-            )
-            if await user_menu.count() > 0:
-                return True
-
-            # Check for logout link
-            logout_link = self._page.locator(
-                'a:has-text("Logout"), button:has-text("Logout")'
-            )
-            if await logout_link.count() > 0:
-                return True
-
-            # Check URL for dashboard or project pages
-            current_url = self._page.url
-            if "/myprojects" in current_url or "/project/" in current_url:
-                return True
-
-        except Exception:
-            # Best-effort check: on any error, log and treat as "not logged in".
-            logger.debug("Error while checking Epicollect5 login status", exc_info=True)
-
-        return False
-
-    async def navigate_to_project_data(self) -> None:
-        """Navigate to the project's data page."""
-        logger.info(f"Navigating to project: {self.project_name}")
-
-        # Navigate to project data page
-        project_url = f"{EPICOLLECT5_URL}/project/{self.project_name}/data"
-        await self._page.goto(project_url, wait_until="networkidle")
-
-        # Wait for the page to load
-        await self._page.wait_for_load_state("domcontentloaded")
-        logger.info("Project data page loaded")
-
-    async def click_upload_beta_button(self) -> None:
-        """Click the Upload BETA button."""
-        logger.info("Looking for Upload BETA button...")
-
-        # Try different selectors for the upload button
-        upload_btn_selectors = [
-            'button:has-text("Upload BETA")',
-            'button:has-text("Upload")',
-            'a:has-text("Upload BETA")',
-            'a:has-text("Upload")',
-            '[class*="upload"]',
-            'button[class*="btn"]:has-text("Upload")',
-        ]
-
-        for selector in upload_btn_selectors:
-            try:
-                btn = self._page.locator(selector).first
-                if await btn.count() > 0:
-                    await btn.click()
-                    await self._page.wait_for_load_state("networkidle")
-                    logger.info("Upload button clicked")
-                    return
-            except Exception:
-                continue
-
-        raise Exception("Upload button not found")
-
-    async def upload_csv_file(self, file_path: Path) -> None:
-        """Upload a CSV file to Epicollect5."""
-        logger.info(f"Uploading file: {file_path}")
-
-        # Wait for file input to be available
-        file_input = self._page.locator('input[type="file"]').first
-        await file_input.wait_for(state="attached", timeout=WAIT_TIMEOUT)
-
-        # Upload the file
-        await file_input.set_input_files(str(file_path))
-        logger.info("File selected for upload")
-
-        # Click upload/confirm button if present
-        try:
-            confirm_btn = self._page.locator(
-                'button:has-text("Upload"), button:has-text("Confirm"), button:has-text("Import")'
-            ).first
-            if await confirm_btn.count() > 0:
-                await confirm_btn.click()
-        except Exception as e:
-            logger.debug(f"No confirm button needed: {e}")
-
-    async def wait_for_upload_completion(self) -> None:
-        """Wait for the upload to complete by detecting the 'Download failed rows' button."""
-        logger.info("Waiting for upload to complete...")
-
-        try:
-            # Wait for the "Download failed rows" button which indicates upload completion
-            download_failed_btn = self._page.locator(
-                'span.hidden-xs:has-text("Download failed rows")'
-            )
-            await download_failed_btn.wait_for(state="visible", timeout=UPLOAD_TIMEOUT)
-            logger.info("Upload completed - 'Download failed rows' button detected")
-            return
-
-        except Exception as e:
-            logger.warning(f"Upload completion check failed: {e}")
-
-    async def close_modal(self) -> None:
-        """Close any open modal dialogs."""
-        try:
-            close_selectors = [
-                'button:has-text("Close")',
-                'button:has-text("Done")',
-                'button:has-text("OK")',
-                '[aria-label="Close"]',
-                '[class*="close"]',
-                ".modal-close",
-            ]
-
-            for selector in close_selectors:
-                try:
-                    btn = self._page.locator(selector).first
-                    if await btn.count() > 0 and await btn.is_visible():
-                        await btn.click()
-                        await asyncio.sleep(0.5)
-                        return
-                except Exception:
-                    continue
-
-        except Exception as e:
-            logger.debug(f"Modal close attempt: {e}")
+LOGIN_WAIT_TIMEOUT = 120000  # 2 minutes for manual login
 
 
 class ParallelUploader:
@@ -421,11 +168,21 @@ class ParallelUploader:
                 await context.storage_state(path=str(self._storage_state_path))
                 return True
 
-            # If not logged in, log error - user needs to login manually first
-            logger.error(
-                "User is not logged in. Please ensure a valid session exists in browser_data/"
+            # If not logged in, wait for manual login
+            logger.info(
+                "Not logged in. Waiting up to 2 minutes for manual login in the browser window..."
             )
-            return False
+            try:
+                await page.wait_for_url(
+                    lambda url: "/myprojects" in url or "/project/" in url,
+                    timeout=LOGIN_WAIT_TIMEOUT,
+                )
+                await context.storage_state(path=str(self._storage_state_path))
+                logger.info("Manual login completed - session saved")
+                return True
+            except Exception:
+                logger.error("Manual login timed out after 2 minutes")
+                return False
 
         finally:
             await context.close()

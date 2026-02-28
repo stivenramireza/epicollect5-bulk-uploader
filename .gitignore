@@ -9,3 +9,9 @@
 
 # Python cache
 __pycache__
+
+# Test files
+files
+
+# Browser data
+browser_data

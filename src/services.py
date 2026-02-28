@@ -174,7 +174,7 @@ async def run_bot_async(
             project_name=project_name,
             project_email=project_email,
             max_workers=max_workers,
-            headless=True,
+            headless=False,
         ) as uploader:
 
             # Login and save state (uses existing session if available)
